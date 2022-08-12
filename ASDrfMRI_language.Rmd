@@ -1,0 +1,455 @@
+---
+title: "ASD rsfMRI and Language/Social Correlations"
+author: "YQ"
+date: "4/1/2022"
+output: html_document
+---
+
+
+
+#here::set_here(path = "/Users/YQ/Dropbox/research/UCSD/research/data_anaysis/new_fMRI_data/ASDrsfMRI")
+
+detach("package:here", unload=TRUE)
+setwd("/Users/YQ/Dropbox/research/UCSD/research/data_anaysis/new_fMRI_data/ASDrsfMRI")
+library(here)
+
+install.packages('boot')
+
+# Setup
+```{r results='hide', message=FALSE}
+# load packages
+packages <- c("here","dplyr","ggplot2","ppcor","tidyverse","nlme","multcomp","xlsx",
+	      "psych")
+lapply(packages, library, character.only = TRUE)
+
+install.packages("boot")
+library(boot)
+```
+
+# Load data
+```{r}
+data4connBehaviorCorr <- read.table(here("datafile/data4connBehaviorCorr_AgeEq_updated_final.txt"),
+					 header = T)
+
+colnames(data4connBehaviorCorr)
+
+data4connBehaviorCorr[data4connBehaviorCorr$subj== "C9Q7K_01b",]
+
+dim(data4connBehaviorCorr)
+
+data4connBehaviorCorr$subj[duplicated(data4connBehaviorCorr$subj)]
+View(data4connBehaviorCorr)
+
+# save age equivalent scores
+data4connBehaviorCorr$mullen_RL_AgeEq/round(data4connBehaviorCorr$final_mullen_ageMo,0)
+
+write.xlsx(data4connBehaviorCorr[,c(1:5,25:26,28,30,32:34)],here("datafile/datafile_AgeEq.xlsx"))
+
+# Mullen T scores
+length(which(data4connBehaviorCorr$final_mullen_ELT < 20))
+length(which(data4connBehaviorCorr$final_mullen_RLT < 20))
+
+which(data4connBehaviorCorr$final_mullen_ELT < 20)
+which(data4connBehaviorCorr$final_mullen_RLT < 20)
+length(which(data4connBehaviorCorr$group=="ASD"))
+
+12/51
+
+```
+
+# Demographic information
+```{r}
+# toddlers at 1-3 years old
+length(which(data4connBehaviorCorr$Age < 48))
+(84/86)*100
+
+length(which(data4connBehaviorCorr$Age < 36))
+
+# demographic and behavior data
+group_all <- describeBy(data4connBehaviorCorr, group = data4connBehaviorCorr$group)
+
+colnames(data4connBehaviorCorr)
+
+length(rownames(group_all$ASD))
+
+max(data4connBehaviorCorr$meanFD)
+
+data4connBehaviorCorr[which(data4connBehaviorCorr$meanFD > 0.2),]
+data4connBehaviorCorr[45,]
+
+data4connBehaviorCorr[data4connBehaviorCorr$final_mullen_ELC_Std > 110,]
+
+group_all
+table <- as.data.frame(matrix(0, 26,7))
+	
+colnames(table) <- c("ASD", "ASD_range","non-ASD","non-ASD_range","t value",
+		     "p value","cohen's d")
+
+ll <- c(2,9, 13:16,23:34,17:22) # c(2,8, 12:15,22:26,36:37,16:20)
+
+# % subjects < 36 months
+length(data4connBehaviorCorr$Age[data4connBehaviorCorr$Age>36])
+length(data4connBehaviorCorr$Age[data4connBehaviorCorr$Age<12])
+
+(85-17)/86
+
+# gender
+ge <- table(data4connBehaviorCorr$Gender, data4connBehaviorCorr$group)
+chisq.test(ge)
+
+ASD_mean <- paste0(round(as.data.frame(group_all$ASD)[ll,"mean"],2), 
+		   " (",round(as.data.frame(group_all$ASD)[ll,"sd"],2),")")
+
+ASD_range <- paste0(round(as.data.frame(group_all$ASD)[ll,"min"],3), 
+		   "–",round(as.data.frame(group_all$ASD)[ll,"max"],3))
+
+TD_mean <- paste0(round(as.data.frame(group_all$`non-ASD`)[ll,"mean"],2), 
+	     " (",round(as.data.frame(group_all$`non-ASD`)[ll,"sd"],2),")")
+
+TD_range <- paste0(round(as.data.frame(group_all$`non-ASD`)[ll,"min"],3), 
+		    "–",round(as.data.frame(group_all$`non-ASD`)[ll,"max"],3))
+
+colnames(data4connBehaviorCorr)
+data4connBehaviorCorr[,ll]
+
+ASDvsTD_t <- sapply(ll, function(x) 
+	t.test(data4connBehaviorCorr[data4connBehaviorCorr$group == "ASD",x],
+	       data4connBehaviorCorr[data4connBehaviorCorr$group == "non-ASD",x])$statistic)
+
+ASDvsTD_p <- sapply(ll, function(x) 
+	t.test(data4connBehaviorCorr[data4connBehaviorCorr$group == "ASD",x],
+	       data4connBehaviorCorr[data4connBehaviorCorr$group == "non-ASD",x])$p.value)
+
+ASDvsTD_d <- sapply(ll, function(x) 
+	effsize::cohen.d(data4connBehaviorCorr[data4connBehaviorCorr$group == "ASD",x],
+			 data4connBehaviorCorr[data4connBehaviorCorr$group == "non-ASD",x])$estimate)
+
+
+table[2:25,1:7] <- rbind.data.frame(cbind(ASD_mean,ASD_range,TD_mean,TD_range,
+					  round(ASDvsTD_t,3),round(ASDvsTD_p,3),
+					  round(ASDvsTD_d,3)))
+
+table[1,c(1,3,6)] <- cbind(paste0(ge[2,1],"/",ge[1,1]), paste0(ge[2,2],"/",ge[1,2]),"0.068")
+
+rownames(table)[1:25] <- c("Sex(M/F)",colnames(data4connBehaviorCorr)[ll])
+
+View(table)
+
+# age at eye-tracking 
+ET_tmp <- data4connBehaviorCorr[which(!is.na(data4connBehaviorCorr$ET_age)),]
+dim(ET_tmp)
+length(ET_tmp$ET_date[ET_tmp$group == "ASD"])
+length(ET_tmp$ET_date[ET_tmp$group == "non-ASD"])
+
+ET_age <- describeBy(ET_tmp[, c("ET_age")],group = ET_tmp$group)
+
+ET_age_t <- t.test(ET_tmp$ET_age[ET_tmp$group == "ASD"], 
+       ET_tmp$ET_age[ET_tmp$group == "non-ASD"])
+ET_age_d <- effsize::cohen.d(ET_tmp$ET_age[ET_tmp$group == "ASD"], 
+       ET_tmp$ET_age[ET_tmp$group == "non-ASD"])
+
+
+ET_age_ASD <- paste0(round(as.data.frame(ET_age$ASD)[,"mean"],2), 
+		   " (",round(as.data.frame(ET_age$ASD)[,"sd"],2),")")
+
+ET_age_ASDrange <- paste0(round(as.data.frame(ET_age$ASD)[,"min"],3), 
+		   "-",round(as.data.frame(ET_age$ASD)[,"max"],3))
+
+ET_age_nonASD <-  paste0(round(as.data.frame(ET_age$`non-ASD`)[,"mean"],2), 
+		   " (",round(as.data.frame(ET_age$`non-ASD`)[,"sd"],2),")")
+
+ET_age_nonASDrange <-  paste0(round(as.data.frame(ET_age$`non-ASD`)[,"min"],3), 
+		   "-",round(as.data.frame(ET_age$`non-ASD`)[,"max"],3))
+
+ET_ge <- table(ET_tmp$Gender,ET_tmp$group)
+chisq.test(ET_ge)
+
+table[26,c(1,3,6)] <- cbind(paste0(ET_ge[2,1],"/",ET_ge[1,1]),
+			    paste0(ET_ge[2,2],"/",ET_ge[1,2]),"0.31")
+
+table[27,1:7] <- rbind.data.frame(cbind(ET_age_ASD,ET_age_ASDrange,ET_age_nonASD,
+					   ET_age_nonASDrange,
+					  round(ET_age_t$statistic,3),round(ET_age_t$p.value,3),
+					  round(ET_age_d$estimate,3)))
+
+row.names(table)[26:27] <- c("eye-tracking sample", "eye-tracking age")
+
+View(table)
+
+# subjects with scan before/after eye-tracking
+length(which(ET_tmp$ScanDate_formatted > ET_tmp$ET_date))
+length(which(ET_tmp$ScanDate_formatted < ET_tmp$ET_date))
+
+write.xlsx(table, here("results/clinical_table_with_range.xlsx"))
+
+# check wired data
+data4connBehaviorCorr[data4connBehaviorCorr$mullen_EL_AgeEq == max(data4connBehaviorCorr$mullen_EL_AgeEq), c("subj","Age","Dx","Gender", "mullen_EL_AgeEq","mullen_RL_AgeEq","final_mullen_ELT","final_mullen_RLT")]
+
+data4connBehaviorCorr[datafile$final_vine_ComTotal_DomStd == max(data4connBehaviorCorr$final_vine_ComTotal_DomStd),
+	 c("subj","Age","Dx","Gender","mullen_EL_AgeEq","mullen_RL_AgeEq","final_vine_ComTotal_DomStd","final_vine_SocTotal_DomStd")]
+
+```
+
+# Subjects with ET data vs. those without ET data
+```{r}
+
+table <- as.data.frame(matrix(0, 25,7))
+colnames(table) <- c("ET_Y", "ET_Y_range","ET_N","ET_N_range","t value",
+		     "p value","cohen's d")
+
+data4connBehaviorCorr$ET_gr[which(!is.na(data4connBehaviorCorr$ET_age))] <- "ET_Y"
+data4connBehaviorCorr$ET_gr[which(is.na(data4connBehaviorCorr$ET_date))] <- "ET_N"
+
+data4connBehaviorCorr$final_ados_CoSoTot[data4connBehaviorCorr$ET_gr == "ET_Y"]
+data4connBehaviorCorr$final_ados_CoSoTot[data4connBehaviorCorr$ET_gr == "ET_N"]
+
+table(data4connBehaviorCorr$group[data4connBehaviorCorr$ET_gr == "ET_Y"])
+table(data4connBehaviorCorr$group)
+table(data4connBehaviorCorr$ET_gr, data4connBehaviorCorr$Gender,data4connBehaviorCorr$group)
+
+gr <- "non-ASD"
+
+tmp <- data4connBehaviorCorr
+
+tmp <- data4connBehaviorCorr[which(data4connBehaviorCorr$group == gr),]
+
+tmp$GeoPref[tmp$GeoPref > 69 ]
+
+group_all <- describeBy(tmp,group = tmp$ET_gr)
+
+group_all
+# gender
+
+ge <- table(tmp$Gender, tmp$ET_gr)
+chisq.test(ge)
+
+ll <- c(2,9, 13:16,23:34,17:22) 
+
+ET_Y_mean <- paste0(round(as.data.frame(group_all$ET_Y)[ll,"mean"],2), 
+		   " (",round(as.data.frame(group_all$ET_Y)[ll,"sd"],2),")")
+
+ET_Y_range <- paste0(round(as.data.frame(group_all$ET_Y)[ll,"min"],2), 
+		   "–",round(as.data.frame(group_all$ET_Y)[ll,"max"],2))
+
+ET_N_mean <- paste0(round(as.data.frame(group_all$ET_N)[ll,"mean"],2), 
+	     " (",round(as.data.frame(group_all$ET_N)[ll,"sd"],2),")")
+
+ET_N_range <- paste0(round(as.data.frame(group_all$ET_N)[ll,"min"],2), 
+		    "–",round(as.data.frame(group_all$ET_N)[ll,"max"],2))
+
+colnames(tmp)
+tmp[,ll]
+
+ET_YvsN_t <- sapply(ll, function(x) 
+	t.test(tmp[tmp$ET_gr == "ET_Y",x], tmp[tmp$ET_gr == "ET_N",x])$statistic)
+
+ET_YvsN_p <- sapply(ll, function(x) 
+	t.test(tmp[tmp$ET_gr == "ET_Y",x], tmp[tmp$ET_gr == "ET_N",x])$p.value)
+
+ET_YvsN_d <- sapply(ll, function(x) 
+	effsize::cohen.d(tmp[tmp$ET_gr == "ET_Y",x],tmp[tmp$ET_gr == "ET_N",x])$estimate)
+
+
+table[2:25,1:7] <- rbind.data.frame(cbind(ET_Y_mean,ET_Y_range,ET_N_mean,ET_N_range,
+					  round(ET_YvsN_t,3),round(ET_YvsN_p,3),
+					  round(ET_YvsN_d,3)))
+
+table[1,c(1,3,5)] <- cbind(paste0(ge[2,2],"/",ge[1,2]), paste0(ge[2,1],"/",ge[1,1]),"0.84")
+
+rownames(table)[1:25] <- c("Sex(M/F)",colnames(data4connBehaviorCorr)[ll])
+
+View(table)
+class(table$ET_Y_range)
+
+write.xlsx(table,here("results/ET_subgroups.xlsx"))
+write.xlsx(table,here("results/ET_ASD_0620.xlsx"))
+write.xlsx(table,here("results/ET_nonASD_0620.xlsx"))
+
+```
+## Connectivity-behavior corrrelation in non-ASD
+```{r}
+# correlation coefficients
+tmp <- data4connBehaviorCorr
+colnames(tmp)
+
+# "ACC"          "LPC_VineSoc" 
+colnames(tmp)[46:48]
+sapply(46:48, function(x) cor.test(tmp[datafile$group == "non-ASD",x],
+	 tmp[datafile$group == "non-ASD", "final_vine_SocTotal_DomStd"]))
+
+sapply(49:51, function(x) cor.test(tmp[datafile$group == "non-ASD",x],
+	 tmp[datafile$group == "non-ASD", "final_vine_ComTotal_DomStd"]))
+
+# "mullenEL_ACC" "mullenEL_LPC" 
+colnames(tmp)[44:45]
+sapply(44:45, function(x) cor.test(tmp[datafile$group == "non-ASD",x],
+	 tmp[datafile$group == "non-ASD", "ratio_EL"]))
+
+```
+
+## Connectivity-behavior corrrelation in ASD
+```{r}
+# correlation coefficients
+colnames(data4connBehaviorCorr)
+tmp <- data4connBehaviorCorr
+tmp <- datafile[tmp$final_vine_ComTotal_DomStd != max(tmp$final_vine_ComTotal_DomStd),]
+cor.test(tmp[tmp$group == "ASD","LHtemporal_Cunues"],
+	 tmp[tmp$group == "ASD","final_vine_ComTotal_DomStd"])
+
+cor.test(tmp[tmp$group == "non-ASD","LHtemporal_Cunues"],
+	 tmp[tmp$group == "non-ASD","final_vine_ComTotal_DomStd"])
+
+cor.test(tmp[tmp$group == "ASD","RHtemporal_Precuneus"],
+	 tmp[tmp$group == "ASD","ratio_EL"])
+
+cor.test(tmp[tmp$group == "non-ASD","RHtemporal_Precuneus"],
+	 tmp[tmp$group == "non-ASD","ratio_EL"])
+
+# plot
+
+get_ggColorHue <- function(n) {
+	hues = seq(15, 375, length = n + 1)
+	hcl(h = hues, l = 65, c = 100)[1:n]
+} 
+
+cols2use = get_ggColorHue(6)
+cols2use = c(cols2use[1],cols2use[5],cols2use[4])
+
+x_var <- "final_vine_ComTotal_DomStd"
+y_var <- "LHtemporal_Cunues"
+
+x_var <- "ratio_EL"
+y_var <- "RHtemporal_Precuneus"
+
+fontSize <- 10
+dotSize <- 3
+
+tmp[72,c("group",x_var,y_var)]
+min(tmp[,c(y_var)])
+
+tmp[72,]
+tmp$group
+
+g <- ggplot(data = tmp, aes_string(x = x_var, y = y_var, colour="group", 
+				   fill = "group")) +
+	geom_point() +
+	geom_smooth(method = rlm, method.args = list(psi = psi.bisquare)) + 
+	scale_fill_manual(values = cols2use) +
+	scale_color_manual(values = cols2use) +
+	labs(x = "Vineland communication",y = "Connectivity strength (z)") +  # title = Title Mullen EL
+	guides(fill = "none", color = "none") + 
+	theme(axis.text.x = element_text(size=fontSize+10,hjust=0.5,vjust=0,face="plain"),
+	      axis.text.y = element_text(size=fontSize+5,hjust=1,vjust=0,face="plain"),
+	      axis.title.x = element_text(size=fontSize+5,hjust=0.5,vjust=0,face="plain"),
+	      axis.title.y = element_text(size=fontSize+5,hjust=0.5,vjust=0.5,face="plain"),
+	      strip.text.x = element_text(size = fontSize+5,hjust=0.5,vjust=0.5,face="plain"),
+	      plot.title = element_text(size=fontSize,hjust=0.5,vjust=0.5,face="plain")) +
+	theme(panel.background = element_blank(),
+	      axis.line = element_line(colour = "black")) +
+	scale_x_continuous(breaks = seq(10,160,30), limits = c(10,160)) +  # 0,70/
+	scale_y_continuous(limits = c(-2,2)) 
+
+print(g)
+
+ggsave("results/Cuneus_Vine_communication_0606.png", 
+       width = 4, height = 3,units = c("in"), dpi = 100)
+ggsave("results/Precuneus_mullenEL_0606.png", 
+       width = 4, height = 3,units = c("in"), dpi = 200)
+
+```
+
+## Eye-tracking and subgroup-specific relationships in ASD
+```{r}
+data4connBehaviorCorr$GeoPref_groups <- NULL
+data4connBehaviorCorr$GeoPref_groups[data4connBehaviorCorr$group == "ASD" & data4connBehaviorCorr$GeoPref > 69] <- "Social"
+data4connBehaviorCorr$GeoPref_groups[data4connBehaviorCorr$group == "ASD" & data4connBehaviorCorr$GeoPref < 69] <- "nonSocial"
+
+data4connBehaviorCorr$GeoPref_groups[data4connBehaviorCorr$group == "non-ASD" & 
+				     	data4connBehaviorCorr$ET_gr == "ET_Y"] <- "Non-ASD"
+
+data4connBehaviorCorr$GeoPref_groups <- factor(data4connBehaviorCorr$GeoPref_groups, 
+					       levels = c("nonSocial", "Social","Non-ASD"))
+
+table(data4connBehaviorCorr$GeoPref_groups)
+
+ggplot(data4connBehaviorCorr[!is.na(data4connBehaviorCorr$GeoPref),],
+       aes(x = GeoPref_groups, y = GeoPref, col = GeoPref_groups)) +
+	geom_boxplot(color = "black") +
+	geom_point(position = "jitter", size = 3) +
+	labs(x = "", y = "Fixation Social (%)") + 
+	theme(legend.title = element_text(colour="black", size=14, face="bold"), 
+	      legend.text = element_text(colour="black", size=14, face="bold")) +
+	theme(plot.title = element_text(hjust = 0.5))+
+	theme(axis.text = element_text(size = 16, face = "bold"),
+	      axis.title = element_text(size = 18, face = "bold")) +
+	theme(panel.background = element_blank(),
+	      panel.border = element_blank(),
+	      panel.grid = element_blank(),
+	      axis.line = element_line(colour = "black")) +
+	coord_cartesian(ylim=c(20,100)) + 
+	scale_y_continuous(breaks = seq(20,100,10))
+
+ggsave("results/ET_subgroups.png", width = 7, height = 5,units = c("in"), dpi = 200)
+
+# t-test
+t.test(data4connBehaviorCorr$GeoPref[data4connBehaviorCorr$GeoPref_groups == "nonSocial"],
+       data4connBehaviorCorr$GeoPref[data4connBehaviorCorr$GeoPref_groups == "Social"])
+t.test(data4connBehaviorCorr$GeoPref[data4connBehaviorCorr$GeoPref_groups == "nonSocial"],
+       data4connBehaviorCorr$GeoPref[data4connBehaviorCorr$GeoPref_groups == "Non-ASD"])
+t.test(data4connBehaviorCorr$GeoPref[data4connBehaviorCorr$GeoPref_groups == "Social"],
+       data4connBehaviorCorr$GeoPref[data4connBehaviorCorr$GeoPref_groups == "Non-ASD"])
+
+# 
+
+```
+## Exploratory analysis of subgroup-specific relations in ASD toddlers
+```{r}
+colnames(tmp)
+tmp <- data4connBehaviorCorr[data4connBehaviorCorr$ET_gr == "ET_Y", ]
+corrTest <- as.data.frame(matrix(0, 2,6))
+colnames(corrTest) <- c("group","behavior","ROI_series", "r1","p1","CI1")
+
+x_var1 <- "final_vine_ComTotal_DomStd"
+y_var1 <- "LHtemporal_Cunues"
+
+tmp[,y_var1]
+
+	mm <- paired.r(as.numeric(corrTest[i,4]), as.numeric(corrTest[i,6]), NULL,16,17,
+		       twotailed = F)
+	#rtests[i,] <- c(mm$z, mm$p)
+	corrTest$z[i] <- round(mm$z,2)
+	corrTest$p[i] <- round(mm$p,2)
+
+x_var2 <- "ratio_EL"
+y_var2 <- "RHtemporal_Precuneus"
+
+	m <- 0	
+	for (group in c("nonSocial","Social")) {
+		
+	m <- m+1
+	tt1 <- cor.test(tmp[tmp$GeoPref_groups == group, x_var2],
+			tmp[tmp$GeoPref_groups == group, y_var2])
+
+	set.seed(1)
+		
+		data <- tmp[tmp$GeoPref_groups == group, ]
+		b1 <- boot(data, 
+			   statistic = function(data, i) {
+			   	cor(data[i, x_var2], data[i, y_var2], method='pearson')
+			   },
+			   R = 100000
+		)
+		
+		bt1 <- boot.ci(b1, type = c("perc"))
+		
+		corrTest[m, 1:3] <- c(group,x_var1, y_var1)
+		corrTest[m, 4:6] <- c(round(tt1$estimate[[1]],3), round(tt1$p.value,3),
+				       paste0("[",round(bt1$percent[1,4],3),", ",round(bt1$percent[1,5],3),"]"))
+
+	}
+
+corrTest
+
+write.csv(corrTest,here("results/subgroup_specific_ASD_Cuneus.csv"))
+write.csv(corrTest,here("results/subgroup_specific_ASD_precuneus.csv"))
+```

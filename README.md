@@ -1,3 +1,3 @@
 # rsfMRI links to language and social deficits in toddlers with autism
-Tidy data used used in the analysis can be found in the data directory.
-Scripts and all steps of analyses and results will be uploaded soon. 
+Tidy data used in the analysis can be found in the data directory.
+All_reports file includes all scripts and analyses used in this study. 
